@@ -3,6 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
 import torch
+import torchvision
 import torch.utils.data as data
 from PIL import Image
 
@@ -35,17 +36,20 @@ class VOC(data.Dataset):
 
     """
 
-    CLASSES = "./voc.names"
+    #CLASSES = "./voc.names"
+    CLASSES = "./person.names"
     IMAGE_FOLDER = "JPEGImages"
     LABEL_FOLDER = "Annotations"
     IMG_EXTENSIONS = '.jpg'
 
-    def __init__(self, root, train=True, transform=None, target_transform=None, resize=448):
+    def __init__(self, root, train=True, transform=None, target_transform=None, resize=448, cls_option=False, selective_cls=None):
         self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
         self.train = train
         self.resize_factor = resize
+        self.cls_option = cls_option
+        self.selective_cls = selective_cls
 
         with open("./voc.names") as f:
             self.classes = f.read().splitlines()
@@ -64,7 +68,9 @@ class VOC(data.Dataset):
         result = []
         voc = cvtVOC()
         yolo = cvtYOLO(os.path.abspath(self.CLASSES))
-        flag, data =voc.parse(os.path.join(self.root, self.LABEL_FOLDER))
+        flag, data =voc.parse(os.path.join(self.root, self.LABEL_FOLDER), cls_option=self.cls_option, selective_cls=self.selective_cls)
+        #print(flag, data)
+        #exit()
 
         try:
 
@@ -116,13 +122,14 @@ class VOC(data.Dataset):
         img = Image.open(key).convert('RGB')
         img = img.resize((self.resize_factor, self.resize_factor))
         target = self.data[index][key]
-
+                
         if self.transform is not None:
-            img = self.transform(img)
+            img, target = self.transform([img, target])
+            img = torchvision.transforms.ToTensor()(img)
             pass
 
         if self.target_transform is not None:
             # Future works
             pass
-
+                
         return img, target
